@@ -13,9 +13,13 @@ scripts/config -e CONFIG_CACHY -e CONFIG_SCHED_BORE
 # 开启必需的内核LSM模块
 scripts/config --set-str CONFIG_LSM lockdown,yama,integrity,selinux,bpf,landlock,apparmor
 
-# 设置实时性为CONFIG_HZ_1000
+# 设置内核中断
+# 开启硬件级高精度定时器
+scripts/config -e CONFIG_HIGH_RES_TIMERS
+# 当 CPU 空闲时，完全关闭周期性时钟中断
+scripts/config -e CONFIG_NO_HZ_IDLE
 scripts/config -d CONFIG_HZ_300
-scripts/config -e CONFIG_HZ_1000 --set-val HZ 1000
+scripts/config -e CONFIG_HZ_500 --set-val HZ 500
 
 # 启用安全启动相关支持
 scripts/config -e CONFIG_IMA_SECURE_AND_OR_TRUSTED_BOOT

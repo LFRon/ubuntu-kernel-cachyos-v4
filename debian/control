@@ -11,7 +11,7 @@ Build-Depends-Arch: bc, bison, flex, linux-libc-dev, build-essential, openssl, p
  python3:native, rsync, rustc | rustup
 Homepage: https://www.kernel.org/
 
-Package: linux-image-7.0.0-cachyos
+Package: linux-image-7.0.2-cachyos
 Architecture: amd64
 Description: CachyOS Linux kernel, This package contains the Linux kernel, modules and corresponding other files.
 
@@ -24,7 +24,7 @@ Description: CachyOS Linux support headers for userspace development
  are used by the installed headers for GNU glibc and other system libraries.
 Multi-Arch: same
 
-Package: linux-headers-7.0.0-cachyos
+Package: linux-headers-7.0.2-cachyos
 Architecture: amd64
 Build-Profiles: <!pkg.linux-upstream.nokernelheaders>
 Depends: clang, llvm, lld
