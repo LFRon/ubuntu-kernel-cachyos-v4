@@ -13,10 +13,14 @@ scripts/config -e CONFIG_CACHY -e CONFIG_SCHED_BORE
 # 开启必需的内核LSM模块
 scripts/config --set-str CONFIG_LSM lockdown,yama,integrity,selinux,bpf,landlock,apparmor
 
-# 设置内核中断
+# 设置内核中断定时器频率
 # 开启硬件级高精度定时器
 scripts/config -e CONFIG_HIGH_RES_TIMERS
-# 当 CPU 空闲时，完全关闭周期性时钟中断
+# 当 CPU 空闲时，关闭周期性时钟中断
+# 因此先关闭CachyOS内核配置里默认开着的CONFIG_NO_HZ_FULL等冲突选项
+# 避免过于频繁地关闭CPU时钟中断导致日用卡顿
+scripts/config -d CONFIG_HZ_PERIODIC
+scripts/config -d CONFIG_NO_HZ_FULL
 scripts/config -e CONFIG_NO_HZ_IDLE
 scripts/config -d CONFIG_HZ_300
 scripts/config -e CONFIG_HZ_500 --set-val HZ 500
