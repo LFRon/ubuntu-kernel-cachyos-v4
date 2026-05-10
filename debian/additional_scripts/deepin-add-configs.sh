@@ -23,7 +23,7 @@ scripts/config -d CONFIG_HZ_PERIODIC
 scripts/config -d CONFIG_NO_HZ_FULL
 scripts/config -e CONFIG_NO_HZ_IDLE
 scripts/config -d CONFIG_HZ_300
-scripts/config -e CONFIG_HZ_500 --set-val HZ 500
+scripts/config -e CONFIG_HZ_300 --set-val HZ 300
 
 # 启用安全启动相关支持
 scripts/config -e CONFIG_IMA_SECURE_AND_OR_TRUSTED_BOOT
