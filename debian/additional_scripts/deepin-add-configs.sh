@@ -2,7 +2,7 @@
 
 # 让内核编译时手动指定LOCALVERSION版本, 避免headers与images版本不一致
 scripts/config -d CONFIG_LOCALVERSION_AUTO
-scripts/config --set-str CONFIG_LOCALVERSION '-cachyos'
+scripts/config --set-str CONFIG_LOCALVERSION '-cachyos-x64v4'
 
 # Do not change the system's hostname
 scripts/config -u CONFIG_DEFAULT_HOSTNAME

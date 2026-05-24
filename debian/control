@@ -5,13 +5,13 @@ Maintainer: LFRon <ronforever@qq.com>
 Rules-Requires-Root: no
 Build-Depends: debhelper-compat (= 12)
 Build-Depends-Arch: bc, bison, flex, linux-libc-dev, build-essential, openssl, patch, zstd,
- clang, llvm, lld,
+ clang, llvm, lld, cpio,
  kmod, libdw-dev:native, libelf-dev:native,
  libssl-dev:native, libssl-dev <!pkg.linux-upstream.nokernelheaders>,
  python3:native, rsync, rustc | rustup
 Homepage: https://www.kernel.org/
 
-Package: linux-image-7.0.5-cachyos
+Package: linux-image-7.0.10-cachyos-x64v4
 Architecture: amd64
 Description: CachyOS Linux kernel, This package contains the Linux kernel, modules and corresponding other files.
 
@@ -24,7 +24,7 @@ Description: CachyOS Linux support headers for userspace development
  are used by the installed headers for GNU glibc and other system libraries.
 Multi-Arch: same
 
-Package: linux-headers-7.0.5-cachyos
+Package: linux-headers-7.0.10-cachyos-x64v4
 Architecture: amd64
 Build-Profiles: <!pkg.linux-upstream.nokernelheaders>
 Depends: clang, llvm, lld
