@@ -1,7 +1,7 @@
-From 4016cb04e64effcdb37580f1392535a76a88a266 Mon Sep 17 00:00:00 2001
+From 36219a4e852aaf2d10d167b89e454447602c87d4 Mon Sep 17 00:00:00 2001
 From: Piotr Gorski <lucjan.lucjanov@gmail.com>
-Date: Tue, 19 May 2026 13:55:35 +0200
-Subject: [PATCH] aufs-7.0: merge v20260518
+Date: Tue, 23 Jun 2026 08:23:52 +0200
+Subject: [PATCH] aufs-7.1: merge v20260621
 
 Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
 ---
@@ -56,7 +56,7 @@ Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
  fs/aufs/file.c                                |  835 +++++++
  fs/aufs/file.h                                |  314 +++
  fs/aufs/finfo.c                               |  135 ++
- fs/aufs/fsctx.c                               | 1232 +++++++++++
+ fs/aufs/fsctx.c                               | 1234 +++++++++++
  fs/aufs/fstype.h                              |  406 ++++
  fs/aufs/hbl.h                                 |   52 +
  fs/aufs/hfsnotify.c                           |  277 +++
@@ -109,11 +109,12 @@ Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
  fs/fhandle.c                                  |    3 +
  fs/file_table.c                               |    1 +
  fs/fsopen.c                                   |    3 +
+ fs/namei.c                                    |    6 +-
  fs/namespace.c                                |    7 +
  fs/notify/fsnotify.c                          |    5 +
  fs/notify/group.c                             |    1 +
  fs/open.c                                     |   10 +
- fs/proc/base.c                                |    2 +-
+ fs/proc/base.c                                |    4 +-
  fs/proc/nommu.c                               |    2 +-
  fs/proc/task_nommu.c                          |    2 +-
  fs/read_write.c                               |    2 +
@@ -122,13 +123,19 @@ Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
  include/linux/fs.h                            |   27 +
  include/linux/fs/super_types.h                |    5 +
  include/linux/lockdep.h                       |    2 +
+ include/linux/namei.h                         |    2 +
  include/linux/splice.h                        |    3 +
- include/uapi/linux/aufs_type.h                |  439 ++++
+ include/uapi/linux/aufs_type.h                |  434 ++++
  kernel/locking/lockdep.c                      |    4 +-
  kernel/task_work.c                            |    1 +
  security/security.c                           |    9 +
+ usr/dummy-include/fcntl.h                     |   10 +
+ usr/dummy-include/stdio.h                     |    8 +
+ usr/dummy-include/sys/ioctl.h                 |   38 +
+ usr/dummy-include/sys/stat.h                  |    0
+ usr/dummy-include/unistd.h                    |   12 +
  usr/include/Makefile                          |    2 +
- 123 files changed, 37705 insertions(+), 8 deletions(-)
+ 130 files changed, 37777 insertions(+), 11 deletions(-)
  create mode 100644 Documentation/ABI/testing/debugfs-aufs
  create mode 100644 Documentation/ABI/testing/sysfs-aufs
  create mode 100644 Documentation/filesystems/aufs/README
@@ -224,6 +231,9 @@ Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
  create mode 100644 fs/aufs/xattr.c
  create mode 100644 fs/aufs/xino.c
  create mode 100644 include/uapi/linux/aufs_type.h
+ create mode 100644 usr/dummy-include/fcntl.h
+ create mode 100644 usr/dummy-include/stdio.h
+ create mode 100644 usr/dummy-include/sys/stat.h
 
 diff --git a/Documentation/ABI/testing/debugfs-aufs b/Documentation/ABI/testing/debugfs-aufs
 new file mode 100644
@@ -1950,10 +1960,10 @@ index 000000000..6d74c81b5
 +Currently this approach is applied to address_space_operations for
 +regular files only.
 diff --git a/MAINTAINERS b/MAINTAINERS
-index d1cc0e12f..7a33d5b80 100644
+index c8d4b913f..f97c062d0 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4231,6 +4231,19 @@ F:	kernel/audit*
+@@ -4253,6 +4253,19 @@ F:	kernel/audit*
  F:	lib/*audit.c
  K:	\baudit_[a-z_0-9]\+\b
  
@@ -2150,10 +2160,10 @@ index 0000913f7..403de57f0 100644
  
  static int loop_clr_fd(struct loop_device *lo)
 diff --git a/fs/Kconfig b/fs/Kconfig
-index 0bfdaecaa..22d84f313 100644
+index 43cb06de2..2ee4a0384 100644
 --- a/fs/Kconfig
 +++ b/fs/Kconfig
-@@ -332,6 +332,7 @@ source "fs/pstore/Kconfig"
+@@ -333,6 +333,7 @@ source "fs/pstore/Kconfig"
  source "fs/ufs/Kconfig"
  source "fs/erofs/Kconfig"
  source "fs/vboxsf/Kconfig"
@@ -2162,7 +2172,7 @@ index 0bfdaecaa..22d84f313 100644
  endif # MISC_FILESYSTEMS
  
 diff --git a/fs/Makefile b/fs/Makefile
-index cf4a745e9..3a6b76f1c 100644
+index ae1b07f9c..2f446b8f9 100644
 --- a/fs/Makefile
 +++ b/fs/Makefile
 @@ -18,6 +18,12 @@ obj-y :=	open.o read_write.o file_table.o super.o \
@@ -2178,7 +2188,7 @@ index cf4a745e9..3a6b76f1c 100644
  obj-$(CONFIG_BUFFER_HEAD)	+= buffer.o mpage.o
  obj-$(CONFIG_PROC_FS)		+= proc_namespace.o
  obj-$(CONFIG_LEGACY_DIRECT_IO)	+= direct-io.o
-@@ -129,3 +135,4 @@ obj-$(CONFIG_VBOXSF_FS)		+= vboxsf/
+@@ -130,3 +136,4 @@ obj-$(CONFIG_VBOXSF_FS)		+= vboxsf/
  obj-$(CONFIG_ZONEFS_FS)		+= zonefs/
  obj-$(CONFIG_BPF_LSM)		+= bpf_fs_kfuncs.o
  obj-$(CONFIG_RESCTRL_FS)	+= resctrl/
@@ -2567,7 +2577,7 @@ index 000000000..3112ab5a7
 +#endif /* __AUFS_H__ */
 diff --git a/fs/aufs/branch.c b/fs/aufs/branch.c
 new file mode 100644
-index 000000000..7879fd5fa
+index 000000000..374287dfa
 --- /dev/null
 +++ b/fs/aufs/branch.c
 @@ -0,0 +1,1412 @@
@@ -3297,7 +3307,7 @@ index 000000000..7879fd5fa
 +		    && au_h_iptr(i, bindex)
 +		    && au_test_ibusy(i, btop, bbot)) {
 +			err = -EBUSY;
-+			AuVerbose(verbose, "busy i%lu\n", i->i_ino);
++			AuVerbose(verbose, "busy i%llu\n", i->i_ino);
 +			AuDbgInode(i);
 +		}
 +		ii_read_unlock(i);
@@ -4399,7 +4409,7 @@ index 000000000..12782f8e0
 +-include ${srctree}/${src}/conf_priv.mk
 diff --git a/fs/aufs/cpup.c b/fs/aufs/cpup.c
 new file mode 100644
-index 000000000..db0e06f50
+index 000000000..66414b455
 --- /dev/null
 +++ b/fs/aufs/cpup.c
 @@ -0,0 +1,1439 @@
@@ -5226,7 +5236,7 @@ index 000000000..db0e06f50
 +	if (dst_inode) {
 +		if (unlikely(!plink)) {
 +			err = -EIO;
-+			AuIOErr("hi%lu(i%lu) exists on b%d "
++			AuIOErr("hi%llu(i%llu) exists on b%d "
 +				"but plink is disabled\n",
 +				dst_inode->i_ino, inode->i_ino, cpg->bdst);
 +			goto out_mnt_write;
@@ -5241,7 +5251,7 @@ index 000000000..db0e06f50
 +				goto out_mnt_write;
 +			if (unlikely(d_is_negative(h_src))) {
 +				err = -EIO;
-+				AuIOErr("i%lu exists on b%d "
++				AuIOErr("i%llu exists on b%d "
 +					"but not pseudo-linked\n",
 +					inode->i_ino, cpg->bdst);
 +				dput(h_src);
@@ -6852,7 +6862,7 @@ index 000000000..445d2bdf5
 +#endif /* __AUFS_DCSUB_H__ */
 diff --git a/fs/aufs/debug.c b/fs/aufs/debug.c
 new file mode 100644
-index 000000000..50b0733f0
+index 000000000..6a8a9fba3
 --- /dev/null
 +++ b/fs/aufs/debug.c
 @@ -0,0 +1,435 @@
@@ -6973,7 +6983,7 @@ index 000000000..50b0733f0
 +	}
 +
 +	ctime = inode_get_ctime(inode);
-+	dpri("i%d: %p, i%lu, %s, cnt %d, nl %u?, 0%o, sz %llu, blk %llu,"
++	dpri("i%d: %p, i%llu, %s, cnt %d, nl %u?, 0%o, sz %llu, blk %llu,"
 +	     " acl %p, def_acl %p,"
 +	     " hn %d, ct %lld, np %lu, st 0x%x, f 0x%x, v %llu, g %x%s%.*s\n",
 +	     bindex, inode,
@@ -7018,7 +7028,7 @@ index 000000000..50b0733f0
 +	struct dentry *d;
 +
 +	spin_lock(&inode->i_lock);
-+	hlist_for_each_entry(d, &inode->i_dentry, d_u.d_alias)
++	for_each_alias(d, inode)
 +		au_dpri_dentry(d);
 +	spin_unlock(&inode->i_lock);
 +}
@@ -7512,7 +7522,7 @@ index 000000000..3f451b2c2
 +#endif /* __AUFS_DEBUG_H__ */
 diff --git a/fs/aufs/dentry.c b/fs/aufs/dentry.c
 new file mode 100644
-index 000000000..1524f56a7
+index 000000000..44f88cf1f
 --- /dev/null
 +++ b/fs/aufs/dentry.c
 @@ -0,0 +1,1217 @@
@@ -7591,7 +7601,7 @@ index 000000000..1524f56a7
 +		 /* && h_inode */
 +		 && !au_dr_lkup_h_ino(args, bindex, h_inode->i_ino)) {
 +		AuDbg("b%d %pd ignored hi%llu\n", bindex, h_dentry,
-+		      (unsigned long long)h_inode->i_ino);
++		      h_inode->i_ino);
 +		goto out_neg;
 +	}
 +
@@ -7822,7 +7832,7 @@ index 000000000..1524f56a7
 +
 +/* subset of struct inode */
 +struct au_iattr {
-+	unsigned long		i_ino;
++	u64			i_ino;
 +	/* unsigned int		i_nlink; */
 +	kuid_t			i_uid;
 +	kgid_t			i_gid;
@@ -10434,7 +10444,7 @@ index 000000000..17633d897
 +#endif /* __AUFS_DIR_H__ */
 diff --git a/fs/aufs/dirren.c b/fs/aufs/dirren.c
 new file mode 100644
-index 000000000..6cfa5ab7a
+index 000000000..a27bc8e16
 --- /dev/null
 +++ b/fs/aufs/dirren.c
 @@ -0,0 +1,1294 @@
@@ -10866,7 +10876,7 @@ index 000000000..6cfa5ab7a
 +	AuDebugOn(err > sz);
 +	p += err;
 +	sz -= err;
-+	err = snprintf(p, sz, "_%llu", (unsigned long long)h_inode->i_ino);
++	err = snprintf(p, sz, "_%llu", h_inode->i_ino);
 +	AuDebugOn(err > sz);
 +	p += err;
 +	sz -= err;
@@ -12294,7 +12304,7 @@ index 000000000..8cd1c7c5c
 +#endif /* __AUFS_DYNOP_H__ */
 diff --git a/fs/aufs/export.c b/fs/aufs/export.c
 new file mode 100644
-index 000000000..e0cdda7e8
+index 000000000..753626a26
 --- /dev/null
 +++ b/fs/aufs/export.c
 @@ -0,0 +1,816 @@
@@ -12529,7 +12539,7 @@ index 000000000..e0cdda7e8
 +		dentry = d_find_alias(inode);
 +	else {
 +		spin_lock(&inode->i_lock);
-+		hlist_for_each_entry(d, &inode->i_dentry, d_u.d_alias) {
++		for_each_alias(d, inode) {
 +			spin_lock(&d->d_lock);
 +			if (!au_test_anon(d)
 +			    && d_inode(d->d_parent)->i_ino == dir_ino) {
@@ -15621,10 +15631,10 @@ index 000000000..fa109ad5c
 +}
 diff --git a/fs/aufs/fsctx.c b/fs/aufs/fsctx.c
 new file mode 100644
-index 000000000..e16324f90
+index 000000000..0905297ea
 --- /dev/null
 +++ b/fs/aufs/fsctx.c
-@@ -0,0 +1,1232 @@
+@@ -0,0 +1,1234 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (C) 2022-2026 Junjiro R. Okajima
@@ -15957,6 +15967,8 @@ index 000000000..e16324f90
 +}
 +
 +/* ---------------------------------------------------------------------- */
++
++#define fsparam_path(NAME, OPT)	__fsparam(fs_param_is_string, NAME, OPT, 0, NULL)
 +
 +/*
 + * For conditionally compiled mount options.
@@ -17665,7 +17677,7 @@ index 000000000..a8da05e2a
 +}
 diff --git a/fs/aufs/hnotify.c b/fs/aufs/hnotify.c
 new file mode 100644
-index 000000000..5a2ca03b0
+index 000000000..849a29eda
 --- /dev/null
 +++ b/fs/aufs/hnotify.c
 @@ -0,0 +1,702 @@
@@ -17865,7 +17877,7 @@ index 000000000..5a2ca03b0
 +		AuDebugOn(!name);
 +		au_iigen_dec(inode);
 +		spin_lock(&inode->i_lock);
-+		hlist_for_each_entry(d, &inode->i_dentry, d_u.d_alias) {
++		for_each_alias(d, inode) {
 +			spin_lock(&d->d_lock);
 +			dname = &d->d_name;
 +			if (dname->len != nlen
@@ -18100,7 +18112,7 @@ index 000000000..5a2ca03b0
 +	AuDebugOn(!a->h_dir);
 +	AuDebugOn(!a->dir);
 +	AuDebugOn(!a->mask);
-+	AuDbg("mask 0x%x, i%lu, hi%lu, hci%lu\n",
++	AuDbg("mask 0x%x, i%llu, hi%llu, hci%llu\n",
 +	      a->mask, a->dir->i_ino, a->h_dir->i_ino,
 +	      a->h_child_inode ? a->h_child_inode->i_ino : 0);
 +
@@ -18373,7 +18385,7 @@ index 000000000..5a2ca03b0
 +}
 diff --git a/fs/aufs/i_op.c b/fs/aufs/i_op.c
 new file mode 100644
-index 000000000..396ec97ca
+index 000000000..eb64cc494
 --- /dev/null
 +++ b/fs/aufs/i_op.c
 @@ -0,0 +1,1504 @@
@@ -19789,8 +19801,8 @@ index 000000000..396ec97ca
 +		 * communicating. If we copied it up, then the communication
 +		 * would be corrupted.
 +		 */
-+		AuWarn1("timestamps for i%lu are ignored "
-+			"since it is on readonly branch (hi%lu).\n",
++		AuWarn1("timestamps for i%llu are ignored "
++			"since it is on readonly branch (hi%llu).\n",
 +			inode->i_ino, h_inode->i_ino);
 +	} else if (type != FS_UPD_ATIME) {
 +		err = -EIO;
@@ -19883,7 +19895,7 @@ index 000000000..396ec97ca
 +};
 diff --git a/fs/aufs/i_op_add.c b/fs/aufs/i_op_add.c
 new file mode 100644
-index 000000000..094080810
+index 000000000..0d724c0dd
 --- /dev/null
 +++ b/fs/aufs/i_op_add.c
 @@ -0,0 +1,943 @@
@@ -20546,7 +20558,7 @@ index 000000000..094080810
 +					 &a->h_path);
 +			dput(h_src_dentry);
 +		} else {
-+			AuIOErr("no dentry found for hi%lu on b%d\n",
++			AuIOErr("no dentry found for hi%llu on b%d\n",
 +				h_inode->i_ino, a->bdst);
 +			err = -EIO;
 +		}
@@ -22858,7 +22870,7 @@ index 000000000..98e549363
 +}
 diff --git a/fs/aufs/inode.c b/fs/aufs/inode.c
 new file mode 100644
-index 000000000..f1848a580
+index 000000000..57d78d793
 --- /dev/null
 +++ b/fs/aufs/inode.c
 @@ -0,0 +1,520 @@
@@ -23262,7 +23274,7 @@ index 000000000..f1848a580
 +		}
 +	}
 +
-+	AuDbg("i%lu\n", (unsigned long)ino);
++	AuDbg("i%llu\n", (unsigned long long)ino);
 +	inode = au_iget_locked(sb, ino);
 +	err = PTR_ERR(inode);
 +	if (IS_ERR(inode))
@@ -23316,9 +23328,9 @@ index 000000000..f1848a580
 +
 +	if (unlikely(au_test_fs_unique_ino(h_inode)))
 +		AuWarn1("Warning: Un-notified UDBA or repeatedly renamed dir,"
-+			" b%d, %s, %pd, hi%lu, i%lu.\n",
++			" b%d, %s, %pd, hi%llu, i%llu.\n",
 +			btop, au_sbtype(h_dentry->d_sb), dentry,
-+			(unsigned long)h_ino, (unsigned long)ino);
++			(unsigned long long)h_ino, (unsigned long long)ino);
 +	ino = 0;
 +	err = au_xino_write(sb, btop, h_ino, /*ino*/0);
 +	if (!err) {
@@ -27286,7 +27298,7 @@ index 000000000..7bc0d3957
 +#endif /* __AUFS_OPTS_H__ */
 diff --git a/fs/aufs/plink.c b/fs/aufs/plink.c
 new file mode 100644
-index 000000000..070f759cf
+index 000000000..93f78dfd9
 --- /dev/null
 +++ b/fs/aufs/plink.c
 @@ -0,0 +1,495 @@
@@ -27429,7 +27441,7 @@ index 000000000..070f759cf
 +		hbl = sbinfo->si_plink + i;
 +		hlist_bl_lock(hbl);
 +		hlist_bl_for_each_entry(icntnr, pos, hbl, plink)
-+			AuDbg("%lu\n", icntnr->vfs_inode.i_ino);
++			AuDbg("%llu\n", icntnr->vfs_inode.i_ino);
 +		hlist_bl_unlock(hbl);
 +	}
 +}
@@ -27478,7 +27490,7 @@ index 000000000..070f759cf
 +	struct inode *h_inode;
 +
 +	h_inode = au_h_iptr(inode, bindex);
-+	rlen = snprintf(name, len, "%lu.%lu", inode->i_ino, h_inode->i_ino);
++	rlen = snprintf(name, len, "%llu.%llu", inode->i_ino, h_inode->i_ino);
 +	return rlen;
 +}
 +
@@ -28860,7 +28872,7 @@ index 000000000..e4bdf52a4
 +}
 diff --git a/fs/aufs/super.c b/fs/aufs/super.c
 new file mode 100644
-index 000000000..41e0bcb2d
+index 000000000..6010f687f
 --- /dev/null
 +++ b/fs/aufs/super.c
 @@ -0,0 +1,861 @@
@@ -29536,7 +29548,7 @@ index 000000000..41e0bcb2d
 +			e = au_refresh_hinode_self(inode);
 +			if (unlikely(e)) {
 +				au_refresh_iop(inode, /*force_getattr*/1);
-+				pr_err("error %d, i%lu\n", e, inode->i_ino);
++				pr_err("error %d, i%llu\n", e, inode->i_ino);
 +				if (!err)
 +					err = e;
 +				/* go on even if err */
@@ -31040,7 +31052,7 @@ index 000000000..2051dea1c
 +}
 diff --git a/fs/aufs/vdir.c b/fs/aufs/vdir.c
 new file mode 100644
-index 000000000..2984e7f0e
+index 000000000..4d7bcbc05
 --- /dev/null
 +++ b/fs/aufs/vdir.c
 @@ -0,0 +1,883 @@
@@ -31899,9 +31911,9 @@ index 000000000..2984e7f0e
 +		deblk_end.deblk += deblk_sz;
 +		while (!is_deblk_end(&vdir_cache->vd_last.p, &deblk_end)) {
 +			de = vdir_cache->vd_last.p.de;
-+			AuDbg("%.*s, off%lld, i%lu, dt%d\n",
++			AuDbg("%.*s, off%lld, i%llu, dt%d\n",
 +			      de->de_str.len, de->de_str.name, ctx->pos,
-+			      (unsigned long)de->de_ino, de->de_type);
++			      (unsigned long long)de->de_ino, de->de_type);
 +			if (unlikely(!dir_emit(ctx, de->de_str.name,
 +					       de->de_str.len, de->de_ino,
 +					       de->de_type))) {
@@ -36181,7 +36193,7 @@ index 000000000..27b5d43ae
 +}
 diff --git a/fs/aufs/xino.c b/fs/aufs/xino.c
 new file mode 100644
-index 000000000..e5a6863e3
+index 000000000..65957bc6a
 --- /dev/null
 +++ b/fs/aufs/xino.c
 @@ -0,0 +1,1913 @@
@@ -37914,7 +37926,7 @@ index 000000000..e5a6863e3
 +	pindex = sbinfo->si_xib_last_pindex;
 +	mutex_unlock(&sbinfo->si_xib_mtx);
 +	ino = xib_calc_ino(pindex, free_bit);
-+	AuDbg("i%lu\n", (unsigned long)ino);
++	AuDbg("i%llu\n", (unsigned long long)ino);
 +	return ino;
 +out_err:
 +	mutex_unlock(&sbinfo->si_xib_mtx);
@@ -38099,10 +38111,10 @@ index 000000000..e5a6863e3
 +	return err;
 +}
 diff --git a/fs/dcache.c b/fs/dcache.c
-index 24f4f3aca..81b07302a 100644
+index 2c61aeea4..6155fe0ea 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -1311,6 +1311,10 @@ enum d_walk_ret {
+@@ -1359,6 +1359,10 @@ enum d_walk_ret {
  	D_WALK_SKIP,
  };
  
@@ -38113,7 +38125,7 @@ index 24f4f3aca..81b07302a 100644
  /**
   * d_walk - walk the dentry tree
   * @parent:	start of walk
-@@ -1319,7 +1323,7 @@ enum d_walk_ret {
+@@ -1367,7 +1371,7 @@ enum d_walk_ret {
   *
   * The @enter() callbacks are called with d_lock held.
   */
@@ -38122,7 +38134,7 @@ index 24f4f3aca..81b07302a 100644
  		   enum d_walk_ret (*enter)(void *, struct dentry *))
  {
  	struct dentry *this_parent, *dentry;
-@@ -1418,6 +1422,7 @@ static void d_walk(struct dentry *parent, void *data,
+@@ -1466,6 +1470,7 @@ static void d_walk(struct dentry *parent, void *data,
  	seq = 1;
  	goto again;
  }
@@ -38131,7 +38143,7 @@ index 24f4f3aca..81b07302a 100644
  struct check_mount {
  	struct vfsmount *mnt;
 diff --git a/fs/exec.c b/fs/exec.c
-index 9ea3a775d..4d936496b 100644
+index ba12b4c46..8cab297c6 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
 @@ -120,6 +120,7 @@ bool path_noexec(const struct path *path)
@@ -38153,7 +38165,7 @@ index 9ea3a775d..4d936496b 100644
  	file = do_file_open(fd, name, &open_exec_flags);
  	if (IS_ERR(file))
 diff --git a/fs/fcntl.c b/fs/fcntl.c
-index beab8080b..92255e819 100644
+index 92d643a14..1783d8cec 100644
 --- a/fs/fcntl.c
 +++ b/fs/fcntl.c
 @@ -36,7 +36,7 @@
@@ -38183,7 +38195,7 @@ index beab8080b..92255e819 100644
  /*
   * Allocate an file->f_owner struct if it doesn't exist, handling racing
 diff --git a/fs/fhandle.c b/fs/fhandle.c
-index 642e3d569..ac33be836 100644
+index 1ca7eb3a6..54702ef28 100644
 --- a/fs/fhandle.c
 +++ b/fs/fhandle.c
 @@ -156,6 +156,9 @@ SYSCALL_DEFINE5(name_to_handle_at, int, dfd, const char __user *, name,
@@ -38197,10 +38209,10 @@ index 642e3d569..ac33be836 100644
  	err = filename_lookup(dfd, filename, lookup_flags, &path, NULL);
  	if (!err) {
 diff --git a/fs/file_table.c b/fs/file_table.c
-index d19d879b6..632ca74cd 100644
+index 16e52e7fc..2446dc5dc 100644
 --- a/fs/file_table.c
 +++ b/fs/file_table.c
-@@ -277,6 +277,7 @@ struct file *alloc_empty_file(int flags, const struct cred *cred)
+@@ -281,6 +281,7 @@ struct file *alloc_empty_file(int flags, const struct cred *cred)
  	}
  	return ERR_PTR(-ENFILE);
  }
@@ -38222,11 +38234,49 @@ index ae19e5136..3725f6730 100644
  	CLASS(filename_flags, filename)(path,
  			 (flags & FSPICK_EMPTY_PATH) ? LOOKUP_EMPTY : 0);
  	ret = filename_lookup(dfd, filename, lookup_flags, &target, NULL);
+diff --git a/fs/namei.c b/fs/namei.c
+index 4787244ca..b6be82d51 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -3781,7 +3781,7 @@ static struct dentry *lock_two_directories(struct dentry *p1, struct dentry *p2)
+ /*
+  * p1 and p2 should be directories on the same fs.
+  */
+-static struct dentry *lock_rename(struct dentry *p1, struct dentry *p2)
++struct dentry *lock_rename(struct dentry *p1, struct dentry *p2)
+ {
+ 	if (p1 == p2) {
+ 		inode_lock_nested(p1->d_inode, I_MUTEX_PARENT);
+@@ -3791,6 +3791,7 @@ static struct dentry *lock_rename(struct dentry *p1, struct dentry *p2)
+ 	mutex_lock(&p1->d_sb->s_vfs_rename_mutex);
+ 	return lock_two_directories(p1, p2);
+ }
++EXPORT_SYMBOL_GPL(lock_rename);
+ 
+ /*
+  * c1 and p2 should be on the same fs.
+@@ -3833,7 +3834,7 @@ static struct dentry *lock_rename_child(struct dentry *c1, struct dentry *p2)
+ 	return NULL;
+ }
+ 
+-static void unlock_rename(struct dentry *p1, struct dentry *p2)
++void unlock_rename(struct dentry *p1, struct dentry *p2)
+ {
+ 	inode_unlock(p1->d_inode);
+ 	if (p1 != p2) {
+@@ -3841,6 +3842,7 @@ static void unlock_rename(struct dentry *p1, struct dentry *p2)
+ 		mutex_unlock(&p1->d_sb->s_vfs_rename_mutex);
+ 	}
+ }
++EXPORT_SYMBOL_GPL(unlock_rename);
+ 
+ /**
+  * __start_renaming - lookup and lock names for rename
 diff --git a/fs/namespace.c b/fs/namespace.c
-index 854f4fc66..68a32452a 100644
+index 341ddd353..a7a399303 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
-@@ -3198,6 +3198,9 @@ static struct file *vfs_open_tree(int dfd, const char __user *filename, unsigned
+@@ -3210,6 +3210,9 @@ static struct file *vfs_open_tree(int dfd, const char __user *filename, unsigned
  		lookup_flags &= ~LOOKUP_AUTOMOUNT;
  	if (flags & AT_SYMLINK_NOFOLLOW)
  		lookup_flags &= ~LOOKUP_FOLLOW;
@@ -38236,7 +38286,7 @@ index 854f4fc66..68a32452a 100644
  
  	/*
  	 * If we create a new mount namespace with the cloned mount tree we
-@@ -5120,6 +5123,9 @@ SYSCALL_DEFINE5(mount_setattr, int, dfd, const char __user *, path,
+@@ -5153,6 +5156,9 @@ SYSCALL_DEFINE5(mount_setattr, int, dfd, const char __user *, path,
  		lookup_flags &= ~LOOKUP_AUTOMOUNT;
  	if (flags & AT_SYMLINK_NOFOLLOW)
  		lookup_flags &= ~LOOKUP_FOLLOW;
@@ -38246,7 +38296,7 @@ index 854f4fc66..68a32452a 100644
  
  	kattr = (struct mount_kattr) {
  		.lookup_flags	= lookup_flags,
-@@ -6287,6 +6293,7 @@ bool our_mnt(struct vfsmount *mnt)
+@@ -6320,6 +6326,7 @@ bool our_mnt(struct vfsmount *mnt)
  {
  	return check_mnt(real_mount(mnt));
  }
@@ -38255,7 +38305,7 @@ index 854f4fc66..68a32452a 100644
  bool current_chrooted(void)
  {
 diff --git a/fs/notify/fsnotify.c b/fs/notify/fsnotify.c
-index b646a861a..888fa76c0 100644
+index 2dac70b99..12ec866be 100644
 --- a/fs/notify/fsnotify.c
 +++ b/fs/notify/fsnotify.c
 @@ -169,6 +169,11 @@ int fsnotify_pre_content(const struct path *path, const loff_t *ppos,
@@ -38283,7 +38333,7 @@ index b56d1c1d9..9e2d893a3 100644
  /*
   * Drop a reference to a group.  Free it if it's through.
 diff --git a/fs/open.c b/fs/open.c
-index 91f113959..1e2c9069d 100644
+index 681d405bc..f250652ba 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -69,6 +69,7 @@ int do_truncate(struct mnt_idmap *idmap, struct dentry *dentry,
@@ -38294,7 +38344,7 @@ index 91f113959..1e2c9069d 100644
  
  int vfs_truncate(const struct path *path, loff_t length)
  {
-@@ -478,6 +479,9 @@ static int do_faccessat(int dfd, const char __user *filename, int mode, int flag
+@@ -476,6 +477,9 @@ static int do_faccessat(int dfd, const char __user *filename, int mode, int flag
  
  	if (flags & AT_SYMLINK_NOFOLLOW)
  		lookup_flags &= ~LOOKUP_FOLLOW;
@@ -38304,7 +38354,7 @@ index 91f113959..1e2c9069d 100644
  
  	if (access_need_override_creds(flags)) {
  		old_cred = access_override_creds();
-@@ -677,6 +681,9 @@ static int do_fchmodat(int dfd, const char __user *filename, umode_t mode,
+@@ -675,6 +679,9 @@ static int do_fchmodat(int dfd, const char __user *filename, umode_t mode,
  		return -EINVAL;
  
  	lookup_flags = (flags & AT_SYMLINK_NOFOLLOW) ? 0 : LOOKUP_FOLLOW;
@@ -38314,7 +38364,7 @@ index 91f113959..1e2c9069d 100644
  	CLASS(filename_uflags, name)(filename, flags);
  retry:
  	error = filename_lookup(dfd, name, lookup_flags, &path, NULL);
-@@ -797,6 +804,9 @@ int do_fchownat(int dfd, const char __user *filename, uid_t user, gid_t group,
+@@ -795,6 +802,9 @@ int do_fchownat(int dfd, const char __user *filename, uid_t user, gid_t group,
  		return -EINVAL;
  
  	lookup_flags = (flag & AT_SYMLINK_NOFOLLOW) ? 0 : LOOKUP_FOLLOW;
@@ -38325,18 +38375,20 @@ index 91f113959..1e2c9069d 100644
  retry:
  	error = filename_lookup(dfd, name, lookup_flags, &path, NULL);
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index 4c863d17d..c33813333 100644
+index d9acfa89c..f3d4acf9a 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
-@@ -1788,7 +1788,7 @@ static int proc_exe_link(struct dentry *dentry, struct path *exe_path)
+@@ -1788,8 +1788,8 @@ static int proc_exe_link(struct dentry *dentry, struct path *exe_path)
  	exe_file = get_task_exe_file(task);
  	put_task_struct(task);
  	if (exe_file) {
 -		*exe_path = exe_file->f_path;
+-		path_get(&exe_file->f_path);
 +		*exe_path = *file_user_path(exe_file);
- 		path_get(&exe_file->f_path);
++		path_get(exe_path);
  		fput(exe_file);
  		return 0;
+ 	} else
 diff --git a/fs/proc/nommu.c b/fs/proc/nommu.c
 index c6e7ebc63..12c340dcd 100644
 --- a/fs/proc/nommu.c
@@ -38404,10 +38456,10 @@ index 9d8f63e2f..81deb01e8 100644
  /*
   * Indicate to the caller that there was a premature EOF when reading from the
 diff --git a/fs/xattr.c b/fs/xattr.c
-index 3e49e612e..5c15a7119 100644
+index 09ecbaaa1..4eb3a4743 100644
 --- a/fs/xattr.c
 +++ b/fs/xattr.c
-@@ -405,6 +405,7 @@ vfs_getxattr_alloc(struct mnt_idmap *idmap, struct dentry *dentry,
+@@ -423,6 +423,7 @@ vfs_getxattr_alloc(struct mnt_idmap *idmap, struct dentry *dentry,
  	*xattr_value = value;
  	return error;
  }
@@ -38416,10 +38468,10 @@ index 3e49e612e..5c15a7119 100644
  ssize_t
  __vfs_getxattr(struct dentry *dentry, struct inode *inode, const char *name,
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index ef17f9e21..68006b3fd 100644
+index 11559c513..f00a7f9ef 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -1389,6 +1389,7 @@ extern void fasync_free(struct fasync_struct *);
+@@ -1390,6 +1390,7 @@ extern void fasync_free(struct fasync_struct *);
  /* can be called from interrupts */
  extern void kill_fasync(struct fasync_struct **, int, int);
  
@@ -38435,7 +38487,7 @@ index ef17f9e21..68006b3fd 100644
  	int (*flock) (struct file *, int, struct file_lock *);
  	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, loff_t *, size_t, unsigned int);
  	ssize_t (*splice_read)(struct file *, loff_t *, struct pipe_inode_info *, size_t, unsigned int);
-@@ -2486,6 +2488,21 @@ static inline void backing_file_set_security(struct file *f, void *security)
+@@ -2489,6 +2491,21 @@ static inline void backing_file_set_security(struct file *f, void *security)
  }
  #endif /* CONFIG_SECURITY */
  
@@ -38457,7 +38509,7 @@ index ef17f9e21..68006b3fd 100644
  /*
   * When mmapping a file on a stackable filesystem (e.g., overlayfs), the file
   * stored in ->vm_file is a backing file whose f_inode is on the underlying
-@@ -2498,15 +2515,25 @@ static inline void backing_file_set_security(struct file *f, void *security)
+@@ -2501,15 +2518,25 @@ static inline void backing_file_set_security(struct file *f, void *security)
  /* Get the path to display in /proc/<pid>/maps */
  static inline const struct path *file_user_path(const struct file *f)
  {
@@ -38512,6 +38564,19 @@ index 621566345..24d2eca0d 100644
  /*
   * Acquire a lock.
   *
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index 2ad6dd998..78ca5f085 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -165,6 +165,8 @@ extern int follow_down_one(struct path *);
+ extern int follow_down(struct path *path, unsigned int flags);
+ extern int follow_up(struct path *);
+ 
++struct dentry *lock_rename(struct dentry *p1, struct dentry *p2);
++void unlock_rename(struct dentry *p1, struct dentry *p2);
+ int start_renaming(struct renamedata *rd, int lookup_flags,
+ 		   struct qstr *old_last, struct qstr *new_last);
+ int start_renaming_dentry(struct renamedata *rd, int lookup_flags,
 diff --git a/include/linux/splice.h b/include/linux/splice.h
 index 9dec4861d..14583d846 100644
 --- a/include/linux/splice.h
@@ -38526,10 +38591,10 @@ index 9dec4861d..14583d846 100644
  #endif
 diff --git a/include/uapi/linux/aufs_type.h b/include/uapi/linux/aufs_type.h
 new file mode 100644
-index 000000000..a95903aa1
+index 000000000..5e15d74b7
 --- /dev/null
 +++ b/include/uapi/linux/aufs_type.h
-@@ -0,0 +1,439 @@
+@@ -0,0 +1,434 @@
 +/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 +/*
 + * Copyright (C) 2005-2026 Junjiro R. Okajima
@@ -38559,7 +38624,7 @@ index 000000000..a95903aa1
 +#include <limits.h>
 +#endif /* __KERNEL__ */
 +
-+#define AUFS_VERSION	"7.0-20260518"
++#define AUFS_VERSION	"7.1-20260622"
 +
 +/* todo? move this to linux-2.6.19/include/magic.h */
 +#define AUFS_SUPER_MAGIC	('a' << 24 | 'u' << 16 | 'f' << 8 | 's')
@@ -38773,12 +38838,7 @@ index 000000000..a95903aa1
 +
 +/* borrowed from linux/include/linux/kernel.h */
 +#ifndef ALIGN
-+#ifdef _GNU_SOURCE
-+#define ALIGN(x, a)		__ALIGN_MASK(x, (typeof(x))(a)-1)
-+#else
 +#define ALIGN(x, a)		(((x) + (a) - 1) & ~((a) - 1))
-+#endif
-+#define __ALIGN_MASK(x, mask)	(((x)+(mask))&~(mask))
 +#endif
 +
 +/* borrowed from linux/include/linux/compiler-gcc3.h */
@@ -39001,7 +39061,7 @@ index 0f7519f8e..96c8ae627 100644
  }
 +EXPORT_SYMBOL_GPL(task_work_run);
 diff --git a/security/security.c b/security/security.c
-index 048560ef6..6b2dee3f2 100644
+index 4e999f023..8fd4da7c5 100644
 --- a/security/security.c
 +++ b/security/security.c
 @@ -1431,6 +1431,7 @@ void security_path_post_mknod(struct mnt_idmap *idmap, struct dentry *dentry)
@@ -39076,17 +39136,110 @@ index 048560ef6..6b2dee3f2 100644
  
  /**
   * security_task_alloc() - Allocate a task's LSM blob
+diff --git a/usr/dummy-include/fcntl.h b/usr/dummy-include/fcntl.h
+new file mode 100644
+index 000000000..6c4bdc826
+--- /dev/null
++++ b/usr/dummy-include/fcntl.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _DUMMY_FCNTL_H
++#define _DUMMY_FCNTL_H
++
++#ifndef O_RDWR
++#define O_RDWR		00000002
++#endif
++extern int open(const char *__file, int __oflag, ...);
++
++#endif /* _DUMMY_FCNTL_H */
+diff --git a/usr/dummy-include/stdio.h b/usr/dummy-include/stdio.h
+new file mode 100644
+index 000000000..12e5fd19b
+--- /dev/null
++++ b/usr/dummy-include/stdio.h
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _DUMMY_STDIO_H
++#define _DUMMY_STDIO_H
++
++extern int sprintf(char *__restrict __s,
++		   const char *__restrict __format, ...);
++
++#endif /* _DUMMY_STDIO_H */
+diff --git a/usr/dummy-include/sys/ioctl.h b/usr/dummy-include/sys/ioctl.h
+index e69de29bb..110121a74 100644
+--- a/usr/dummy-include/sys/ioctl.h
++++ b/usr/dummy-include/sys/ioctl.h
+@@ -0,0 +1,38 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _DUMMY_SYS_IOCTL_H
++#define _DUMMY_SYS_IOCTL_H
++
++#define _IOC_NRBITS	8
++#define _IOC_TYPEBITS	8
++
++#ifndef _IOC_SIZEBITS
++# define _IOC_SIZEBITS	14
++#endif
++
++#define _IOC_NRSHIFT	0
++#define _IOC_TYPESHIFT	(_IOC_NRSHIFT+_IOC_NRBITS)
++#define _IOC_SIZESHIFT	(_IOC_TYPESHIFT+_IOC_TYPEBITS)
++#define _IOC_DIRSHIFT	(_IOC_SIZESHIFT+_IOC_SIZEBITS)
++
++#ifndef _IOC_WRITE
++# define _IOC_WRITE	1U
++#endif
++
++#ifndef _IOC_READ
++# define _IOC_READ	2U
++#endif
++
++#define _IOC(dir, type, nr, size) \
++	(((dir)  << _IOC_DIRSHIFT) | \
++	 ((type) << _IOC_TYPESHIFT) | \
++	 ((nr)   << _IOC_NRSHIFT) | \
++	 ((size) << _IOC_SIZESHIFT))
++
++#define _IOC_TYPECHECK(t) (sizeof(t))
++
++#define _IOW(type, nr, size)	_IOC(_IOC_WRITE, (type), (nr), (_IOC_TYPECHECK(size)))
++#define _IOWR(type, nr, size)	_IOC(_IOC_READ|_IOC_WRITE, (type), (nr), (_IOC_TYPECHECK(size)))
++
++extern int ioctl(int __fd, unsigned long __request, ...);
++
++#endif /* _DUMMY_SYS_IOCTL_H */
+diff --git a/usr/dummy-include/sys/stat.h b/usr/dummy-include/sys/stat.h
+new file mode 100644
+index 000000000..e69de29bb
+diff --git a/usr/dummy-include/unistd.h b/usr/dummy-include/unistd.h
+index e69de29bb..6a13344a3 100644
+--- a/usr/dummy-include/unistd.h
++++ b/usr/dummy-include/unistd.h
+@@ -0,0 +1,12 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _DUMMY_UNISTD_H
++#define _DUMMY_UNISTD_H
++
++# ifndef __pid_t_defined
++typedef int pid_t;
++#  define __pid_t_defined
++# endif
++
++extern int close(int __fd);
++
++#endif /* _DUMMY_UNISTD_H */
 diff --git a/usr/include/Makefile b/usr/include/Makefile
-index 6d86a53c6..37f8d2f74 100644
+index ee69dd9d9..22ecfa69b 100644
 --- a/usr/include/Makefile
 +++ b/usr/include/Makefile
-@@ -134,6 +134,8 @@ uses-libc += linux/wireless.h
+@@ -145,6 +145,8 @@ uses-libc += linux/wireless.h
  uses-libc += regulator/regulator.h
  uses-libc += scsi/fc/fc_els.h
  
 +uses-libc += linux/aufs_type.h
 +
- ifeq ($(SRCARCH),hexagon)
+ ifeq ($(UAPI_ARCH),hexagon)
  uses-libc += asm/sigcontext.h
  endif
 -- 
